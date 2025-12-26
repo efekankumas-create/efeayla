@@ -262,8 +262,11 @@ function render(d){
   p2.classList.toggle("active",d.turn==="ayla");
 }
 
-function draw(el,hand,show){
+function draw(el, hand = [], show){
   el.innerHTML="";
+
+  if(!Array.isArray(hand)) return;
+
   hand.forEach(c=>{
     const div=document.createElement("div");
     div.className="card "+("♥♦".includes(c.s)?"red":"");
