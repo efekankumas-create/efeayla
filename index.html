@@ -192,17 +192,22 @@ function score(hand){
 
 function render(d){
   if(!d) return;
-  p1Name.innerText=d.p1.name;
-  p2Name.innerText=d.p2.name;
-  status.innerText=d.status;
-  draw(p1Cards,d.p1.hand);
-  draw(p2Cards,d.p2.hand);
-  draw(dealerCards,d.dealer,d.over);
-  p1Score.innerText=score(d.p1.hand);
-  p2Score.innerText=score(d.p2.hand);
-  dealerScore.innerText=d.over?score(d.dealer):"?";
-  p1.classList.toggle("active",d.turn==="efe");
-  p2.classList.toggle("active",d.turn==="ayla");
+  if(!d.p1 || !d.p2 || !d.dealer) return;
+
+  p1Name.innerText = d.p1.name || "efe";
+  p2Name.innerText = d.p2.name || "ayla";
+  status.innerText = d.status || "";
+
+  draw(p1Cards, d.p1.hand || []);
+  draw(p2Cards, d.p2.hand || []);
+  draw(dealerCards, d.dealer || [], d.over);
+
+  p1Score.innerText = score(d.p1.hand || []);
+  p2Score.innerText = score(d.p2.hand || []);
+  dealerScore.innerText = d.over ? score(d.dealer || []) : "?";
+
+  p1.classList.toggle("active", d.turn === "efe");
+  p2.classList.toggle("active", d.turn === "ayla");
 }
 
 function draw(el,hand,show=true){
