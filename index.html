@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Online Blackjack – Efe & Ayla</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body{
+    background:radial-gradient(circle,#1b5e20,#0d3b16);
+    color:white;
+    font-family:Arial;
+    text-align:center;
+    margin:0;
+}
+.container{max-width:700px;margin:auto;padding:20px}
+input,button{
+    padding:10px;
+    font-size:16px;
+    border-radius:8px;
+    border:none;
+    margin:5px;
+}
+button{cursor:pointer}
+.cards{font-size:22px;margin:10px}
+.hidden{display:none}
+hr{opacity:.3}
+#message{font-size:20px;margin-top:10px}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>♠ Online Blackjack ♥</h1>
+<p>Efe & Ayla – aynı masada 🎴</p>
+
+<div id="login">
+    <input id="room" placeholder="Oda Kodu (örnek: ask21)">
+    <br>
+    <button onclick="joinRoom()">Odaya Gir</button>
+</div>
+
+<div id="game" class="hidden">
+<h2 id="turnInfo"></h2>
+
+<h3>🤵 Dealer</h3>
+<div class="cards" id="dealerCards"></div>
+
+<hr>
+
+<h3>Efe</h3>
+<div class="cards" id="p1cards"></div>
+<div id="p1score"></div>
+
+<h3>Ayla</h3>
+<div class="cards" id="p2cards"></div>
+<div id="p2score"></div>
+
+<br>
+<button onclick="hit()">Kart Çek</button>
+<button onclick="stand()">Dur</button>
+<button onclick="newGame()">Yeni El</button>
+
+<div id="message"></div>
+</div>
+</div>
+
+<script>
+// 🔥 FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyC_H3M5q_bFPPSi4Xw3_hpgPrbdTpcmEHo",
+  authDomain: "blakja-a9592.firebaseapp.com",
+  databaseURL: "https://blakja-a9592-default-rtdb.firebaseio.com",
+  projectId: "blakja-a9592",
+  storageBucket: "blakja-a9592.firebasestorage.app",
+  messagingSenderId: "369055237282",
+  appId: "1:369055237282:web:005a5b028efee55cd983fb"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let roomRef;
+let myPlayer;
+
+// Kartlar
+const V=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const S=["♠","♥","♦","♣"];
+const draw=()=>V[Math.floor(Math.random()*13)]+S[Math.floor(Math.random()*4)];
+const val=c=>c.startsWith("A")?11:["K","Q","J"].some(x=>c.startsWith(x))?10:parseInt(c);
+
+const score=h=>{
+ let s=0,a=0;
+ h.forEach(c=>{s+=val(c);if(c.startsWith("A"))a++;});
+ while(s>21&&a){s-=10;a--;}
+ return s;
+};
+
+function joinRoom(){
+ const r=document.getElementById("room").value;
+ if(!r) return alert("Oda kodu gir");
+
+ roomRef=db.ref("rooms/"+r);
+
+ roomRef.once("value",snap=>{
+   if(!snap.exists()){
+     myPlayer=1;
+     roomRef.set({
+       turn:1,
+       p1:[draw(),draw()],
+       p2:[],
+       dealer:[draw(),draw()],
+       done:false
+     });
+   }else{
+     myPlayer=2;
+   }
+ });
+
+ roomRef.on("value",snap=>{
+   const d=snap.val();
+   if(!d) return;
+
+   p1cards.innerText=d.p1.join(" ");
+   p2cards.innerText=d.p2.join(" ");
+   dealerCards.innerText=d.done?d.dealer.join(" "):d.dealer[0]+" ❓";
+
+   p1score.innerText="Skor: "+score(d.p1);
+   p2score.innerText="Skor: "+score(d.p2);
+
+   turnInfo.innerText=
+     d.turn===1?"Sıra: Efe":
+     d.turn===2?"Sıra: Ayla":"Dealer oynuyor";
+ });
+ login.style.display="none";
+ game.classList.remove("hidden");
+}
+
+function hit(){
+ roomRef.once("value",snap=>{
+   const d=snap.val();
+   if(d.turn!==myPlayer||d.done) return;
+
+   const k=myPlayer===1?"p1":"p2";
+   d[k].push(draw());
+
+   if(score(d[k])>=21) d.turn++;
+   roomRef.set(d);
+ });
+}
+
+function stand(){
+ roomRef.once("value",snap=>{
+   const d=snap.val();
+   if(d.turn!==myPlayer||d.done) return;
+   d.turn++;
+   if(d.turn>2){
+     while(score(d.dealer)<17) d.dealer.push(draw());
+     d.done=true;
+   }
+   roomRef.set(d);
+ });
+}
+
+function newGame(){
+ roomRef.set({
+   turn:1,
+   p1:[draw(),draw()],
+   p2:[],
+   dealer:[draw(),draw()],
+   done:false
+ });
+}
+</script>
+</body>
+</html>
