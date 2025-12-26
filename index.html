@@ -6,27 +6,30 @@
 <title>Blackjack Royale</title>
 
 <style>
-:root { --gold:#ffd700; --green:#1a4a1a; --wood:#3d2b1f; }
+:root{--gold:#ffd700;--wood:#3d2b1f}
 body{
-  margin:0;background:#121212;font-family:Segoe UI,sans-serif;
-  color:white;display:flex;justify-content:center;align-items:center;
-  height:100vh;overflow:hidden
+  margin:0;background:#121212;color:white;
+  font-family:Segoe UI,sans-serif;
+  display:flex;justify-content:center;align-items:center;
+  height:100vh
 }
 #lobby{
   background:#1e1e1e;padding:35px;border-radius:20px;
-  border:3px solid var(--gold);width:350px;text-align:center
+  border:3px solid var(--gold);text-align:center;width:340px
 }
 input,button{
-  padding:12px;border-radius:10px;border:none;
-  margin:8px;width:80%;font-size:1rem
+  padding:12px;margin:8px;border-radius:10px;
+  border:none;width:80%;font-size:1rem
 }
 input{background:#222;color:white}
 button{background:var(--gold);font-weight:bold;cursor:pointer}
+
 #game{
-  width:95vw;height:90vh;display:none;flex-direction:column;
-  justify-content:space-around;align-items:center;
+  display:none;width:95vw;height:90vh;
   background:radial-gradient(circle,#2e7d32,#0d2b0d);
-  border:15px solid var(--wood);border-radius:120px
+  border:15px solid var(--wood);
+  border-radius:120px;
+  flex-direction:column;justify-content:space-around;align-items:center
 }
 .hand{display:flex;gap:-30px;min-height:120px}
 .card{
@@ -87,7 +90,6 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
   </div>
 </div>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -101,18 +103,20 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-let room="", me="", ref;
+let room="",me="",ref;
 
 function join(){
-  room=roomInput.value.trim();
-  me=name.value.trim().toLowerCase();
+  room=document.getElementById("room").value.trim();
+  me=document.getElementById("name").value.trim().toLowerCase();
   if(!room||!me) return alert("Bilgileri gir");
-  lobby.style.display="none";
-  game.style.display="flex";
-  ref=db.ref("rooms/"+room);
+  if(me!=="efe"&&me!=="ayla") return alert("İsim efe veya ayla olmalı");
 
+  document.getElementById("lobby").style.display="none";
+  document.getElementById("game").style.display="flex";
+
+  ref=db.ref("rooms/"+room);
   ref.once("value",s=>{ if(!s.exists()) initGame(); });
-  ref.on("value",s=> render(s.val()));
+  ref.on("value",s=>render(s.val()));
 }
 
 function initGame(){
@@ -134,12 +138,13 @@ function newGame(){
   let deck=[];
   suits.forEach(s=>vals.forEach(v=>deck.push({s,v})));
   deck.sort(()=>Math.random()-0.5);
-  ref.update({
+
+  ref.set({
+    turn:"efe",
     deck,
     dealer:[deck.pop(),deck.pop()],
     p1:{name:"efe",hand:[deck.pop(),deck.pop()]},
     p2:{name:"ayla",hand:[deck.pop(),deck.pop()]},
-    turn:"efe",
     over:false,
     status:"Sıra: efe"
   });
@@ -149,8 +154,7 @@ function hit(){
   ref.once("value",s=>{
     const d=s.val();
     if(d.turn!==me||d.over) return;
-    const card=d.deck.pop();
-    d[me==="efe"?"p1":"p2"].hand.push(card);
+    d[me==="efe"?"p1":"p2"].hand.push(d.deck.pop());
     if(score(d[me==="efe"?"p1":"p2"].hand)>21)
       d.turn=me==="efe"?"ayla":"dealer";
     ref.set(d);
@@ -182,7 +186,7 @@ function score(hand){
     else if("JQK".includes(c.v)) s+=10;
     else s+=parseInt(c.v);
   });
-  while(a--) s+= s+11>21?1:11;
+  while(a--) s+=s+11>21?1:11;
   return s;
 }
 
