@@ -49,11 +49,7 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
   background:rgba(0,0,0,.6);padding:10px 30px;
   border-radius:30px;color:var(--gold)
 }
-.timer{
-  font-size:1.2rem;
-  color:#ff5252;
-  font-weight:bold;
-}
+.timer{color:#ff5252;font-weight:bold}
 </style>
 </head>
 
@@ -61,15 +57,14 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
 
 <div id="lobby">
   <h2 style="color:var(--gold)">Blackjack Royale</h2>
-  <input id="room" placeholder="Oda Kodu (efeayla)">
-  <input id="name" placeholder="İsim (efe / ayla)">
+  <input id="room" placeholder="Oda Kodu">
+  <input id="name" placeholder="efe / ayla">
   <button onclick="join()">Odaya Gir</button>
 </div>
 
 <div id="game">
   <div class="status">
-    <span id="status">Bekleniyor...</span> |
-    ⏱️ <span class="timer" id="timer">--</span>
+    <span id="status">Bekleniyor</span> | ⏱ <span id="timer">--</span>
   </div>
 
   <div class="zone">
@@ -94,7 +89,7 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
   <div class="controls">
     <button onclick="hit()">Hit</button>
     <button onclick="stand()">Stand</button>
-    <button onclick="newGame()">Yeni El (10 Çip)</button>
+    <button onclick="newGame()">Yeni El (10)</button>
   </div>
 </div>
 
@@ -102,110 +97,84 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig={
+firebase.initializeApp({
   apiKey:"AIzaSyC_H3M5q_bFPPSi4Xw3_hpgPrbdTpcmEHo",
-  authDomain:"blakja-a9592.firebaseapp.com",
-  databaseURL:"https://blakja-a9592-default-rtdb.firebaseio.com",
-  projectId:"blakja-a9592"
-};
-firebase.initializeApp(firebaseConfig);
+  databaseURL:"https://blakja-a9592-default-rtdb.firebaseio.com"
+});
 const db=firebase.database();
 
 let room="",me="",ref,timerInt;
 
+const safe=n=>Number(n)||0;
+
 function join(){
-  room = document.getElementById("room").value.trim();
-  me = document.getElementById("name").value.trim().toLowerCase();
+  room=document.getElementById("room").value.trim();
+  me=document.getElementById("name").value.trim().toLowerCase();
+  if(!room||!["efe","ayla"].includes(me)) return alert("Hatalı giriş");
 
-  if(!room || !me) return alert("Bilgileri gir");
-  if(me !== "efe" && me !== "ayla")
-    return alert("İsim sadece efe veya ayla olabilir");
+  lobby.style.display="none";
+  game.style.display="flex";
+  ref=db.ref("rooms/"+room);
 
-  document.getElementById("lobby").style.display = "none";
-  document.getElementById("game").style.display = "flex";
-
-  ref = db.ref("rooms/" + room);
-  ref.once("value", s => { if(!s.exists()) initGame(); });
-  ref.on("value", s => render(s.val()));
+  ref.once("value",s=>{ if(!s.exists()) init(); });
+  ref.on("value",s=>render(s.val()));
 }
 
-
-function initGame(){
+function init(){
   ref.set({
-    turn:"efe",
-    timer:15,
+    turn:"efe",timer:15,over:true,status:"Yeni el",
     p1:{name:"efe",hand:[],chips:100},
     p2:{name:"ayla",hand:[],chips:100},
-    dealer:[],
-    deck:[],
-    bet:10,
-    over:true,
-    status:"Yeni el başlat"
+    dealer:[],deck:[]
   });
 }
 
 function newGame(){
   if(me!=="efe") return;
-  const suits=["♠","♣","♥","♦"];
-  const vals=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const suits=["♠","♣","♥","♦"],vals=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
   let deck=[];
   suits.forEach(s=>vals.forEach(v=>deck.push({s,v})));
   deck.sort(()=>Math.random()-0.5);
 
   ref.once("value",s=>{
-    const d=s.val();
-    if(d.p1.chips<10||d.p2.chips<10) return alert("Yetersiz çip");
-
-    d.p1.chips-=10;
-    d.p2.chips-=10;
-
-    d.turn="efe";
-    d.timer=15;
+    let d=s.val();
+    if(d.p1.chips<10||d.p2.chips<10) return;
+    d.p1.chips=safe(d.p1.chips)-10;
+    d.p2.chips=safe(d.p2.chips)-10;
     d.deck=deck;
     d.dealer=[deck.pop(),deck.pop()];
     d.p1.hand=[deck.pop(),deck.pop()];
     d.p2.hand=[deck.pop(),deck.pop()];
-    d.over=false;
-    d.status="Sıra: efe";
-    ref.set(d);
-    startTimer();
+    d.turn="efe";d.timer=15;d.over=false;d.status="Sıra: efe";
+    ref.set(d);startTimer();
   });
 }
 
-function hit(){
-  action("hit");
-}
-function stand(){
-  action("stand");
-}
+function hit(){action("hit")}
+function stand(){action("stand")}
 
-function action(type){
+function action(t){
   ref.once("value",s=>{
-    const d=s.val();
-    if(d.turn!==me||d.over) return;
-    const p=me==="efe"?d.p1:d.p2;
-    if(type==="hit") p.hand.push(d.deck.pop());
-    if(type==="stand"||score(p.hand)>21){
-      d.turn=me==="efe"?"ayla":"dealer";
-      d.timer=15;
+    let d=s.val();if(d.turn!==me||d.over)return;
+    let p=me==="efe"?d.p1:d.p2;
+    if(t==="hit") p.hand.push(d.deck.pop());
+    if(t==="stand"||score(p.hand)>21){
+      d.turn=me==="efe"?"ayla":"dealer";d.timer=15;
     }
     ref.set(d);
-    if(d.turn==="dealer") dealerPlay(d);
-    else startTimer();
+    if(d.turn==="dealer") dealer(d); else startTimer();
   });
 }
 
-function dealerPlay(d){
+function dealer(d){
   while(score(d.dealer)<17) d.dealer.push(d.deck.pop());
   d.over=true;
-
-  const dScore=score(d.dealer);
+  let ds=score(d.dealer);
   ["p1","p2"].forEach(p=>{
-    const ps=score(d[p].hand);
-    if(ps<=21&&(dScore>21||ps>dScore)) d[p].chips+=20;
-    else if(ps===dScore) d[p].chips+=10;
+    let ps=score(d[p].hand);
+    if(ps<=21&&(ds>21||ps>ds)) d[p].chips+=20;
+    else if(ps===ds) d[p].chips+=10;
   });
-
   d.status="El bitti";
   ref.set(d);
 }
@@ -214,24 +183,23 @@ function startTimer(){
   clearInterval(timerInt);
   timerInt=setInterval(()=>{
     ref.once("value",s=>{
-      const d=s.val();
-      if(d.over) return clearInterval(timerInt);
+      let d=s.val();
+      if(d.over){clearInterval(timerInt);return;}
       d.timer--;
       if(d.timer<=0){
-        d.turn=d.turn==="efe"?"ayla":"dealer";
-        d.timer=15;
+        d.turn=d.turn==="efe"?"ayla":"dealer";d.timer=15;
         ref.set(d);
-        if(d.turn==="dealer") dealerPlay(d);
+        if(d.turn==="dealer") dealer(d);
       }else ref.set(d);
     });
   },1000);
 }
 
-function score(hand){
+function score(h){
   let s=0,a=0;
-  hand.forEach(c=>{
-    if(c.v==="A") a++;
-    else if("JQK".includes(c.v)) s+=10;
+  h.forEach(c=>{
+    if(c.v==="A")a++;
+    else if("JQK".includes(c.v))s+=10;
     else s+=parseInt(c.v);
   });
   while(a--) s+=s+11>21?1:11;
@@ -239,15 +207,11 @@ function score(hand){
 }
 
 function render(d){
-  if(!d) return;
-
+  if(!d)return;
   status.innerText=d.status;
   timer.innerText=d.timer;
-
-  p1Name.innerText=d.p1.name;
-  p2Name.innerText=d.p2.name;
-  p1Chips.innerText=d.p1.chips;
-  p2Chips.innerText=d.p2.chips;
+  p1Name.innerText=d.p1.name;p2Name.innerText=d.p2.name;
+  p1Chips.innerText=d.p1.chips;p2Chips.innerText=d.p2.chips;
 
   draw(p1Cards,d.p1.hand,me==="efe");
   draw(p2Cards,d.p2.hand,me==="ayla");
@@ -256,15 +220,12 @@ function render(d){
   p1Score.innerText=score(d.p1.hand);
   p2Score.innerText=score(d.p2.hand);
   dealerScore.innerText=d.over?score(d.dealer):"?";
-
-  p1.classList.toggle("active",d.turn==="efe");
-  p2.classList.toggle("active",d.turn==="ayla");
 }
 
 function draw(el,hand,show){
   el.innerHTML="";
-  hand.forEach((c,i)=>{
-    const div=document.createElement("div");
+  hand.forEach(c=>{
+    let div=document.createElement("div");
     div.className="card "+("♥♦".includes(c.s)?"red":"");
     if(!show) div.style.background="#1a237e";
     else div.innerHTML=`${c.v}<div style="font-size:2rem">${c.s}</div>${c.v}`;
