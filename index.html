@@ -114,18 +114,21 @@ const db=firebase.database();
 let room="",me="",ref,timerInt;
 
 function join(){
-  room=room.value.trim();
-  me=name.value.trim().toLowerCase();
-  if(!room||!me) return alert("Bilgileri gir");
-  if(me!=="efe"&&me!=="ayla") return alert("İsim efe veya ayla");
+  room = document.getElementById("room").value.trim();
+  me = document.getElementById("name").value.trim().toLowerCase();
 
-  lobby.style.display="none";
-  game.style.display="flex";
+  if(!room || !me) return alert("Bilgileri gir");
+  if(me !== "efe" && me !== "ayla")
+    return alert("İsim sadece efe veya ayla olabilir");
 
-  ref=db.ref("rooms/"+room);
-  ref.once("value",s=>{ if(!s.exists()) initGame(); });
-  ref.on("value",s=>render(s.val()));
+  document.getElementById("lobby").style.display = "none";
+  document.getElementById("game").style.display = "flex";
+
+  ref = db.ref("rooms/" + room);
+  ref.once("value", s => { if(!s.exists()) initGame(); });
+  ref.on("value", s => render(s.val()));
 }
+
 
 function initGame(){
   ref.set({
