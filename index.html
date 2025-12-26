@@ -120,9 +120,11 @@ function join(){
 
   ref = db.ref("rooms/" + room);
 
-  ref.once("value", s => {
-    if(!s.exists()) init();
-  });
+ref.once("value", s => {
+  if(!s.exists() || me === "efe"){
+    init(); // HER ŞEY SIFIRLANIR
+  }
+});
 
   ref.on("value", s => render(s.val()));
 }
