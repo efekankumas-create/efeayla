@@ -217,7 +217,7 @@ function startTimer(){
       d.timer--;
       if(d.timer<=0){
         d.turn=d.turn==="efe"?"ayla":"dealer";
-        d.timer=15;
+        d.timer=65;
         ref.set(d);
         if(d.turn==="dealer") dealer(d);
       }else ref.set(d);
@@ -225,14 +225,19 @@ function startTimer(){
   },1000);
 }
 
-function score(h){
-  let s=0,a=0;
+function score(h = []){
+  if(!Array.isArray(h)) return 0;
+
+  let s = 0, a = 0;
+
   h.forEach(c=>{
-    if(c.v==="A") a++;
-    else if("JQK".includes(c.v)) s+=10;
-    else s+=parseInt(c.v);
+    if(!c) return;
+    if(c.v === "A") a++;
+    else if("JQK".includes(c.v)) s += 10;
+    else s += parseInt(c.v);
   });
-  while(a--) s+=s+11>21?1:11;
+
+  while(a--) s += s + 11 > 21 ? 1 : 11;
   return s;
 }
 
@@ -253,9 +258,9 @@ function render(d){
     draw(p1Cards,d.p1.hand,me==="efe");
     draw(p2Cards,d.p2.hand,me==="ayla");
     draw(dealerCards,d.dealer,d.over);
-    p1Score.innerText=score(d.p1.hand);
-    p2Score.innerText=score(d.p2.hand);
-    dealerScore.innerText=d.over?score(d.dealer):"?";
+p1Score.innerText = score(d.p1?.hand);
+p2Score.innerText = score(d.p2?.hand);
+dealerScore.innerText = d.over ? score(d.dealer) : "?";
   }
 
   p1.classList.toggle("active",d.turn==="efe");
