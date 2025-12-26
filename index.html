@@ -5,36 +5,19 @@
 <title>♠ Online Blackjack ♥</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{
-  margin:0;font-family:Arial;background:#0b3d2e;color:#fff;text-align:center
-}
-.panel{
-  background:rgba(0,0,0,.4);
-  margin:20px auto;padding:15px;
-  border-radius:14px;max-width:420px
-}
-input,button{
-  padding:10px;margin:5px;
-  border-radius:10px;border:none;font-size:15px
-}
+body{margin:0;font-family:Arial;background:#0b3d2e;color:#fff;text-align:center}
+.panel{background:rgba(0,0,0,.45);margin:20px auto;padding:15px;border-radius:16px;max-width:420px}
+input,button{padding:10px;margin:5px;border-radius:10px;border:none;font-size:15px}
 button{background:#ffcc00;font-weight:bold;cursor:pointer}
 .cards{display:flex;justify-content:center;gap:8px;min-height:60px}
-.card{
-  width:42px;height:62px;background:#fff;color:#000;
-  border-radius:6px;display:flex;
-  align-items:center;justify-content:center;
-  animation:deal .3s ease
-}
-@keyframes deal{
-  from{transform:translateY(-15px);opacity:0}
-  to{transform:none;opacity:1}
-}
+.card{width:42px;height:62px;background:#fff;color:#000;border-radius:6px;display:flex;align-items:center;justify-content:center;animation:deal .3s ease}
+@keyframes deal{from{transform:translateY(-15px);opacity:0}to{opacity:1}}
 .hidden{display:none}
 .turn{color:#ffcc00}
 </style>
 </head>
-<body>
 
+<body>
 <h1>♠ Online Blackjack ♥</h1>
 
 <div id="login" class="panel">
@@ -58,9 +41,10 @@ button{background:#ffcc00;font-weight:bold;cursor:pointer}
   <div id="dealerCards" class="cards"></div>
   <div id="dealerScore"></div>
 
-  <div id="controls">
+  <div>
     <button onclick="hit()">Hit</button>
     <button onclick="stand()">Stand</button>
+    <button onclick="resetGame()">Yeni Oyun</button>
   </div>
 
   <h3 id="result"></h3>
@@ -82,7 +66,18 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-let room="",me="";
+let room="", me="";
+
+function baseData(){
+  return {
+    turn:"efe",
+    efe:[],
+    ayla:[],
+    dealer:[],
+    done:{efe:false,ayla:false},
+    result:""
+  };
+}
 
 function join(){
   room=document.getElementById("room").value.trim();
@@ -95,33 +90,30 @@ function join(){
   document.getElementById("roomTitle").innerText="Oda: "+room;
 
   const ref=db.ref("rooms/"+room);
-  ref.once("value",s=>{
-    if(!s.exists()){
-      ref.set({
-        turn:"efe",
-        efe:[],ayla:[],dealer:[],
-        done:{efe:false,ayla:false}
-      });
-    }
-  });
+  ref.once("value",s=>{ if(!s.exists()) ref.set(baseData()); });
 
   ref.on("value",s=>{
-    const d=s.val(); if(!d) return;
-    draw("efeCards",d.efe); score("efeScore",d.efe);
-    draw("aylaCards",d.ayla); score("aylaScore",d.ayla);
-    draw("dealerCards",d.dealer); score("dealerScore",d.dealer);
+    const d=s.val() || baseData();
+    draw("efeCards", d.efe);
+    draw("aylaCards", d.ayla);
+    draw("dealerCards", d.dealer);
+    score("efeScore", d.efe);
+    score("aylaScore", d.ayla);
+    score("dealerScore", d.dealer);
     document.getElementById("tEfe").className=d.turn==="efe"?"turn":"";
     document.getElementById("tAyla").className=d.turn==="ayla"?"turn":"";
-    if(d.result) document.getElementById("result").innerText=d.result;
+    document.getElementById("result").innerText=d.result || "";
   });
 }
 
-function card(){return Math.floor(Math.random()*10)+1}
+function card(){ return Math.floor(Math.random()*10)+1; }
+function sum(a){ return (a||[]).reduce((x,y)=>x+y,0); }
 
 function hit(){
   const ref=db.ref("rooms/"+room);
   ref.get().then(s=>{
-    const d=s.val(); if(d.turn!==me) return;
+    const d=s.val(); if(!d || d.turn!==me) return;
+    d[me]=d[me]||[];
     d[me].push(card());
     if(sum(d[me])>21) d.done[me]=true;
     ref.set(d).then(nextTurn);
@@ -131,7 +123,7 @@ function hit(){
 function stand(){
   const ref=db.ref("rooms/"+room);
   ref.get().then(s=>{
-    const d=s.val(); if(d.turn!==me) return;
+    const d=s.val(); if(!d || d.turn!==me) return;
     d.done[me]=true;
     ref.set(d).then(nextTurn);
   });
@@ -141,38 +133,32 @@ function nextTurn(){
   const ref=db.ref("rooms/"+room);
   ref.get().then(s=>{
     const d=s.val();
-    if(!d.done.efe){d.turn="efe";return ref.set(d);}
-    if(!d.done.ayla){d.turn="ayla";return ref.set(d);}
-    dealerPlay(d);
+    if(!d.done.efe){ d.turn="efe"; return ref.set(d); }
+    if(!d.done.ayla){ d.turn="ayla"; return ref.set(d); }
+    while(sum(d.dealer)<17) d.dealer.push(card());
+    d.result=`Efe: ${sum(d.efe)} | Ayla: ${sum(d.ayla)} | Krupiye: ${sum(d.dealer)}`;
+    ref.set(d);
   });
 }
 
-function dealerPlay(d){
-  while(sum(d.dealer)<17) d.dealer.push(card());
-  d.result=resultText(d);
-  db.ref("rooms/"+room).set(d);
-}
-
-function sum(a){return a.reduce((x,y)=>x+y,0)}
-function resultText(d){
-  const e=sum(d.efe), a=sum(d.ayla), k=sum(d.dealer);
-  let r="";
-  r+="Efe: "+(e>21?"Bust":e)+" | ";
-  r+="Ayla: "+(a>21?"Bust":a)+" | ";
-  r+="Krupiye: "+(k>21?"Bust":k)+"\n";
-  return r;
+function resetGame(){
+  if(me!=="efe") return alert("Yeni oyunu sadece Efe başlatır");
+  db.ref("rooms/"+room).set(baseData());
 }
 
 function draw(id,arr){
-  const el=document.getElementById(id); el.innerHTML="";
+  arr = arr || [];
+  const el=document.getElementById(id);
+  el.innerHTML="";
   arr.forEach(c=>{
     const d=document.createElement("div");
-    d.className="card"; d.innerText=c;
+    d.className="card";
+    d.innerText=c;
     el.appendChild(d);
   });
 }
 function score(id,a){
-  document.getElementById(id).innerText="Toplam: "+sum(a);
+  document.getElementById(id).innerText="Toplam: "+sum(a||[]);
 }
 </script>
 </body>
