@@ -35,7 +35,8 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
 .card{
   width:80px;height:115px;background:white;color:black;
   border-radius:8px;padding:5px;font-weight:bold;
-  animation:deal .4s ease;box-shadow:4px 4px 10px #000
+  animation:deal .4s ease;
+  box-shadow:4px 4px 10px #000
 }
 .red{color:#c62828}
 @keyframes deal{
@@ -103,14 +104,11 @@ firebase.initializeApp({
 });
 const db=firebase.database();
 
-let room="",me="",ref,timerInt;
-let lastHands="";
-
-const safe=n=>Number(n)||0;
+let room="",me="",ref,timerInt,lastHands="";
 
 function join(){
-  room=document.getElementById("room").value.trim();
-  me=document.getElementById("name").value.trim().toLowerCase();
+  room=roomInput.value.trim();
+  me=nameInput.value.trim().toLowerCase();
   if(!room||!["efe","ayla"].includes(me)) return alert("Hatalı giriş");
 
   lobby.style.display="none";
@@ -132,7 +130,9 @@ function init(){
 
 function newGame(){
   if(me!=="efe") return;
-  const suits=["♠","♣","♥","♦"],vals=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+
+  const suits=["♠","♣","♥","♦"];
+  const vals=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
   let deck=[];
   suits.forEach(s=>vals.forEach(v=>deck.push({s,v})));
   deck.sort(()=>Math.random()-0.5);
@@ -140,14 +140,22 @@ function newGame(){
   ref.once("value",s=>{
     let d=s.val();
     if(d.p1.chips<10||d.p2.chips<10) return;
-    d.p1.chips=safe(d.p1.chips)-10;
-    d.p2.chips=safe(d.p2.chips)-10;
+
+    d.p1.chips-=10;
+    d.p2.chips-=10;
+
     d.deck=deck;
     d.dealer=[deck.pop(),deck.pop()];
     d.p1.hand=[deck.pop(),deck.pop()];
     d.p2.hand=[deck.pop(),deck.pop()];
-    d.turn="efe";d.timer=15;d.over=false;d.status="Sıra: efe";
-    ref.set(d);startTimer();
+
+    d.turn="efe";
+    d.timer=15;
+    d.over=false;
+    d.status="Sıra: efe";
+
+    ref.set(d);
+    startTimer();
   });
 }
 
@@ -156,27 +164,37 @@ function stand(){action("stand")}
 
 function action(t){
   ref.once("value",s=>{
-    let d=s.val();if(d.turn!==me||d.over)return;
+    let d=s.val();
+    if(d.turn!==me||d.over) return;
+
     let p=me==="efe"?d.p1:d.p2;
     if(t==="hit") p.hand.push(d.deck.pop());
+
     if(t==="stand"||score(p.hand)>21){
-      d.turn=me==="efe"?"ayla":"dealer";d.timer=15;
+      d.turn=me==="efe"?"ayla":"dealer";
+      d.timer=15;
     }
+
     ref.set(d);
-    if(d.turn==="dealer") dealer(d); else startTimer();
+    if(d.turn==="dealer") dealer(d);
+    else startTimer();
   });
 }
 
 function dealer(d){
   while(score(d.dealer)<17) d.dealer.push(d.deck.pop());
+
   d.over=true;
   let ds=score(d.dealer);
+
   ["p1","p2"].forEach(p=>{
     let ps=score(d[p].hand);
     if(ps<=21&&(ds>21||ps>ds)) d[p].chips+=20;
     else if(ps===ds) d[p].chips+=10;
   });
+
   d.status="El bitti";
+  d.turn="efe";
   ref.set(d);
 }
 
@@ -188,7 +206,8 @@ function startTimer(){
       if(d.over){clearInterval(timerInt);return;}
       d.timer--;
       if(d.timer<=0){
-        d.turn=d.turn==="efe"?"ayla":"dealer";d.timer=15;
+        d.turn=d.turn==="efe"?"ayla":"dealer";
+        d.timer=15;
         ref.set(d);
         if(d.turn==="dealer") dealer(d);
       }else ref.set(d);
@@ -199,8 +218,8 @@ function startTimer(){
 function score(h){
   let s=0,a=0;
   h.forEach(c=>{
-    if(c.v==="A")a++;
-    else if("JQK".includes(c.v))s+=10;
+    if(c.v==="A") a++;
+    else if("JQK".includes(c.v)) s+=10;
     else s+=parseInt(c.v);
   });
   while(a--) s+=s+11>21?1:11;
