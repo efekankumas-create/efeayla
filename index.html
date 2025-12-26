@@ -107,16 +107,24 @@ const db=firebase.database();
 let room="",me="",ref,timerInt,lastHands="";
 
 function join(){
-  room=roomInput.value.trim();
-  me=nameInput.value.trim().toLowerCase();
-  if(!room||!["efe","ayla"].includes(me)) return alert("Hatalı giriş");
+  room = document.getElementById("room").value.trim();
+  me   = document.getElementById("name").value.trim().toLowerCase();
 
-  lobby.style.display="none";
-  game.style.display="flex";
-  ref=db.ref("rooms/"+room);
+  if(!room || !["efe","ayla"].includes(me)){
+    alert("Oda kodu ve isim doğru girilmeli (efe / ayla)");
+    return;
+  }
 
-  ref.once("value",s=>{ if(!s.exists()) init(); });
-  ref.on("value",s=>render(s.val()));
+  document.getElementById("lobby").style.display = "none";
+  document.getElementById("game").style.display  = "flex";
+
+  ref = db.ref("rooms/" + room);
+
+  ref.once("value", s => {
+    if(!s.exists()) init();
+  });
+
+  ref.on("value", s => render(s.val()));
 }
 
 function init(){
