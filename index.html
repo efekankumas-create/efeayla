@@ -4,79 +4,35 @@
 <meta charset="UTF-8">
 <title>♠ Online Blackjack ♥</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', sans-serif;
-    background: radial-gradient(circle at top, #1c7c54, #0b3d2e);
-    color: #fff;
-    text-align: center;
-  }
-
-  h1 { margin-top: 20px; }
-
-  .panel {
-    background: rgba(0,0,0,0.35);
-    margin: 20px auto;
-    padding: 20px;
-    border-radius: 16px;
-    max-width: 420px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.4);
-  }
-
-  input, button {
-    padding: 12px;
-    font-size: 16px;
-    border-radius: 10px;
-    border: none;
-    outline: none;
-    margin: 6px;
-  }
-
-  input { width: 80%; }
-
-  button {
-    cursor: pointer;
-    background: #ffcc00;
-    color: #000;
-    font-weight: bold;
-    transition: transform .1s ease, background .2s;
-  }
-
-  button:hover { background: #ffd633; }
-  button:active { transform: scale(0.95); }
-
-  .cards {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    min-height: 70px;
-  }
-
-  .card {
-    width: 44px;
-    height: 64px;
-    background: #fff;
-    color: #000;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    animation: deal .35s ease;
-  }
-
-  @keyframes deal {
-    from { transform: translateY(-20px) scale(0.8); opacity: 0; }
-    to { transform: translateY(0) scale(1); opacity: 1; }
-  }
-
-  .hidden { display: none; }
+body{
+  margin:0;font-family:Arial;background:#0b3d2e;color:#fff;text-align:center
+}
+.panel{
+  background:rgba(0,0,0,.4);
+  margin:20px auto;padding:15px;
+  border-radius:14px;max-width:420px
+}
+input,button{
+  padding:10px;margin:5px;
+  border-radius:10px;border:none;font-size:15px
+}
+button{background:#ffcc00;font-weight:bold;cursor:pointer}
+.cards{display:flex;justify-content:center;gap:8px;min-height:60px}
+.card{
+  width:42px;height:62px;background:#fff;color:#000;
+  border-radius:6px;display:flex;
+  align-items:center;justify-content:center;
+  animation:deal .3s ease
+}
+@keyframes deal{
+  from{transform:translateY(-15px);opacity:0}
+  to{transform:none;opacity:1}
+}
+.hidden{display:none}
+.turn{color:#ffcc00}
 </style>
 </head>
-
 <body>
 
 <h1>♠ Online Blackjack ♥</h1>
@@ -84,76 +40,140 @@
 <div id="login" class="panel">
   <input id="room" placeholder="Oda Kodu (örn: efeayla)">
   <br>
-  <button onclick="joinRoom()">Odaya Gir</button>
+  <button onclick="join()">Odaya Gir</button>
 </div>
 
 <div id="game" class="panel hidden">
   <h3 id="roomTitle"></h3>
 
-  <h4>Efe</h4>
+  <h4 id="tEfe">Efe</h4>
   <div id="efeCards" class="cards"></div>
-  <button onclick="draw('efe')">Efe Kart Çek</button>
+  <div id="efeScore"></div>
 
-  <h4>Ayla</h4>
+  <h4 id="tAyla">Ayla</h4>
   <div id="aylaCards" class="cards"></div>
-  <button onclick="draw('ayla')">Ayla Kart Çek</button>
+  <div id="aylaScore"></div>
+
+  <h4>Krupiye</h4>
+  <div id="dealerCards" class="cards"></div>
+  <div id="dealerScore"></div>
+
+  <div id="controls">
+    <button onclick="hit()">Hit</button>
+    <button onclick="stand()">Stand</button>
+  </div>
+
+  <h3 id="result"></h3>
 </div>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyC_H3M5q_bFPPSi4Xw3_hpgPrbdTpcmEHo",
-  authDomain: "blakja-a9592.firebaseapp.com",
-  databaseURL: "https://blakja-a9592-default-rtdb.firebaseio.com",
-  projectId: "blakja-a9592",
-  storageBucket: "blakja-a9592.firebasestorage.app",
-  messagingSenderId: "369055237282",
-  appId: "1:369055237282:web:005a5b028efee55cd983fb"
+const firebaseConfig={
+  apiKey:"AIzaSyC_H3M5q_bFPPSi4Xw3_hpgPrbdTpcmEHo",
+  authDomain:"blakja-a9592.firebaseapp.com",
+  databaseURL:"https://blakja-a9592-default-rtdb.firebaseio.com",
+  projectId:"blakja-a9592",
+  storageBucket:"blakja-a9592.firebasestorage.app",
+  messagingSenderId:"369055237282",
+  appId:"1:369055237282:web:005a5b028efee55cd983fb"
 };
-
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-let roomCode = "";
+const db=firebase.database();
 
-function joinRoom() {
-  roomCode = document.getElementById("room").value.trim();
-  if (!roomCode) return alert("Oda kodu yaz");
+let room="",me="";
+
+function join(){
+  room=document.getElementById("room").value.trim();
+  if(!room) return alert("Oda kodu yaz");
+  me=prompt("İsmin? (efe / ayla)").toLowerCase();
+  if(me!=="efe" && me!=="ayla") return alert("efe veya ayla yaz");
 
   document.getElementById("login").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
-  document.getElementById("roomTitle").innerText = "Oda: " + roomCode;
+  document.getElementById("roomTitle").innerText="Oda: "+room;
 
-  db.ref("rooms/" + roomCode).on("value", snap => {
-    const data = snap.val() || {};
-    render("efeCards", data.efe || []);
-    render("aylaCards", data.ayla || []);
+  const ref=db.ref("rooms/"+room);
+  ref.once("value",s=>{
+    if(!s.exists()){
+      ref.set({
+        turn:"efe",
+        efe:[],ayla:[],dealer:[],
+        done:{efe:false,ayla:false}
+      });
+    }
+  });
+
+  ref.on("value",s=>{
+    const d=s.val(); if(!d) return;
+    draw("efeCards",d.efe); score("efeScore",d.efe);
+    draw("aylaCards",d.ayla); score("aylaScore",d.ayla);
+    draw("dealerCards",d.dealer); score("dealerScore",d.dealer);
+    document.getElementById("tEfe").className=d.turn==="efe"?"turn":"";
+    document.getElementById("tAyla").className=d.turn==="ayla"?"turn":"";
+    if(d.result) document.getElementById("result").innerText=d.result;
   });
 }
 
-function draw(player) {
-  const card = Math.floor(Math.random() * 11) + 1;
-  const ref = db.ref("rooms/" + roomCode + "/" + player);
-  ref.get().then(snap => {
-    const arr = snap.val() || [];
-    arr.push(card);
-    ref.set(arr);
+function card(){return Math.floor(Math.random()*10)+1}
+
+function hit(){
+  const ref=db.ref("rooms/"+room);
+  ref.get().then(s=>{
+    const d=s.val(); if(d.turn!==me) return;
+    d[me].push(card());
+    if(sum(d[me])>21) d.done[me]=true;
+    ref.set(d).then(nextTurn);
   });
 }
 
-function render(id, cards) {
-  const el = document.getElementById(id);
-  el.innerHTML = "";
-  cards.forEach(c => {
-    const d = document.createElement("div");
-    d.className = "card";
-    d.innerText = c;
+function stand(){
+  const ref=db.ref("rooms/"+room);
+  ref.get().then(s=>{
+    const d=s.val(); if(d.turn!==me) return;
+    d.done[me]=true;
+    ref.set(d).then(nextTurn);
+  });
+}
+
+function nextTurn(){
+  const ref=db.ref("rooms/"+room);
+  ref.get().then(s=>{
+    const d=s.val();
+    if(!d.done.efe){d.turn="efe";return ref.set(d);}
+    if(!d.done.ayla){d.turn="ayla";return ref.set(d);}
+    dealerPlay(d);
+  });
+}
+
+function dealerPlay(d){
+  while(sum(d.dealer)<17) d.dealer.push(card());
+  d.result=resultText(d);
+  db.ref("rooms/"+room).set(d);
+}
+
+function sum(a){return a.reduce((x,y)=>x+y,0)}
+function resultText(d){
+  const e=sum(d.efe), a=sum(d.ayla), k=sum(d.dealer);
+  let r="";
+  r+="Efe: "+(e>21?"Bust":e)+" | ";
+  r+="Ayla: "+(a>21?"Bust":a)+" | ";
+  r+="Krupiye: "+(k>21?"Bust":k)+"\n";
+  return r;
+}
+
+function draw(id,arr){
+  const el=document.getElementById(id); el.innerHTML="";
+  arr.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="card"; d.innerText=c;
     el.appendChild(d);
   });
 }
+function score(id,a){
+  document.getElementById(id).innerText="Toplam: "+sum(a);
+}
 </script>
-
 </body>
 </html>
