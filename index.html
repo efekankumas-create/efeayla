@@ -103,16 +103,23 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
+const $ = id => document.getElementById(id);
+
+const p1Name=$("p1Name"),p2Name=$("p2Name"),status=$("status"),
+p1Cards=$("p1Cards"),p2Cards=$("p2Cards"),dealerCards=$("dealerCards"),
+p1Score=$("p1Score"),p2Score=$("p2Score"),dealerScore=$("dealerScore"),
+p1=$("p1"),p2=$("p2");
+
 let room="",me="",ref;
 
 function join(){
-  room=document.getElementById("room").value.trim();
-  me=document.getElementById("name").value.trim().toLowerCase();
+  room=$("room").value.trim();
+  me=$("name").value.trim().toLowerCase();
   if(!room||!me) return alert("Bilgileri gir");
   if(me!=="efe"&&me!=="ayla") return alert("İsim efe veya ayla olmalı");
 
-  document.getElementById("lobby").style.display="none";
-  document.getElementById("game").style.display="flex";
+  $("lobby").style.display="none";
+  $("game").style.display="flex";
 
   ref=db.ref("rooms/"+room);
   ref.once("value",s=>{ if(!s.exists()) initGame(); });
@@ -153,10 +160,10 @@ function newGame(){
 function hit(){
   ref.once("value",s=>{
     const d=s.val();
-    if(d.turn!==me||d.over) return;
-    d[me==="efe"?"p1":"p2"].hand.push(d.deck.pop());
-    if(score(d[me==="efe"?"p1":"p2"].hand)>21)
-      d.turn=me==="efe"?"ayla":"dealer";
+    if(!d||d.turn!==me||d.over) return;
+    const p=me==="efe"?d.p1:d.p2;
+    p.hand.push(d.deck.pop());
+    if(score(p.hand)>21) d.turn=me==="efe"?"ayla":"dealer";
     ref.set(d);
     if(d.turn==="dealer") dealerPlay(d);
   });
@@ -165,7 +172,7 @@ function hit(){
 function stand(){
   ref.once("value",s=>{
     const d=s.val();
-    if(d.turn!==me) return;
+    if(!d||d.turn!==me) return;
     d.turn=me==="efe"?"ayla":"dealer";
     ref.set(d);
     if(d.turn==="dealer") dealerPlay(d);
@@ -192,22 +199,21 @@ function score(hand){
 
 function render(d){
   if(!d) return;
-  if(!d.p1 || !d.p2 || !d.dealer) return;
 
-  p1Name.innerText = d.p1.name || "efe";
-  p2Name.innerText = d.p2.name || "ayla";
-  status.innerText = d.status || "";
+  p1Name.innerText=d.p1?.name||"efe";
+  p2Name.innerText=d.p2?.name||"ayla";
+  status.innerText=d.status||"";
 
-  draw(p1Cards, d.p1.hand || []);
-  draw(p2Cards, d.p2.hand || []);
-  draw(dealerCards, d.dealer || [], d.over);
+  draw(p1Cards,d.p1?.hand||[]);
+  draw(p2Cards,d.p2?.hand||[]);
+  draw(dealerCards,d.dealer||[],d.over);
 
-  p1Score.innerText = score(d.p1.hand || []);
-  p2Score.innerText = score(d.p2.hand || []);
-  dealerScore.innerText = d.over ? score(d.dealer || []) : "?";
+  p1Score.innerText=score(d.p1?.hand||[]);
+  p2Score.innerText=score(d.p2?.hand||[]);
+  dealerScore.innerText=d.over?score(d.dealer||[]):"?";
 
-  p1.classList.toggle("active", d.turn === "efe");
-  p2.classList.toggle("active", d.turn === "ayla");
+  p1.classList.toggle("active",d.turn==="efe");
+  p2.classList.toggle("active",d.turn==="ayla");
 }
 
 function draw(el,hand,show=true){
@@ -221,5 +227,6 @@ function draw(el,hand,show=true){
   });
 }
 </script>
+
 </body>
 </html>
