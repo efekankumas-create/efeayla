@@ -49,6 +49,11 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
   background:rgba(0,0,0,.6);padding:10px 30px;
   border-radius:30px;color:var(--gold)
 }
+.timer{
+  font-size:1.2rem;
+  color:#ff5252;
+  font-weight:bold;
+}
 </style>
 </head>
 
@@ -62,7 +67,10 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
 </div>
 
 <div id="game">
-  <div class="status" id="status">Bekleniyor...</div>
+  <div class="status">
+    <span id="status">Bekleniyor...</span> |
+    ⏱️ <span class="timer" id="timer">--</span>
+  </div>
 
   <div class="zone">
     <b>Krupiye</b>
@@ -72,12 +80,12 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
 
   <div style="display:flex;width:100%;justify-content:space-around">
     <div id="p1" class="zone">
-      <b id="p1Name"></b>
+      <b id="p1Name"></b> | 💰 <span id="p1Chips"></span>
       <div id="p1Cards" class="hand"></div>
       <div id="p1Score"></div>
     </div>
     <div id="p2" class="zone">
-      <b id="p2Name"></b>
+      <b id="p2Name"></b> | 💰 <span id="p2Chips"></span>
       <div id="p2Cards" class="hand"></div>
       <div id="p2Score"></div>
     </div>
@@ -86,7 +94,7 @@ button{background:var(--gold);font-weight:bold;cursor:pointer}
   <div class="controls">
     <button onclick="hit()">Hit</button>
     <button onclick="stand()">Stand</button>
-    <button onclick="newGame()">Yeni Oyun</button>
+    <button onclick="newGame()">Yeni El (10 Çip)</button>
   </div>
 </div>
 
@@ -103,23 +111,16 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-const $ = id => document.getElementById(id);
-
-const p1Name=$("p1Name"),p2Name=$("p2Name"),status=$("status"),
-p1Cards=$("p1Cards"),p2Cards=$("p2Cards"),dealerCards=$("dealerCards"),
-p1Score=$("p1Score"),p2Score=$("p2Score"),dealerScore=$("dealerScore"),
-p1=$("p1"),p2=$("p2");
-
-let room="",me="",ref;
+let room="",me="",ref,timerInt;
 
 function join(){
-  room=$("room").value.trim();
-  me=$("name").value.trim().toLowerCase();
+  room=room.value.trim();
+  me=name.value.trim().toLowerCase();
   if(!room||!me) return alert("Bilgileri gir");
-  if(me!=="efe"&&me!=="ayla") return alert("İsim efe veya ayla olmalı");
+  if(me!=="efe"&&me!=="ayla") return alert("İsim efe veya ayla");
 
-  $("lobby").style.display="none";
-  $("game").style.display="flex";
+  lobby.style.display="none";
+  game.style.display="flex";
 
   ref=db.ref("rooms/"+room);
   ref.once("value",s=>{ if(!s.exists()) initGame(); });
@@ -129,12 +130,14 @@ function join(){
 function initGame(){
   ref.set({
     turn:"efe",
-    p1:{name:"efe",hand:[]},
-    p2:{name:"ayla",hand:[]},
+    timer:15,
+    p1:{name:"efe",hand:[],chips:100},
+    p2:{name:"ayla",hand:[],chips:100},
     dealer:[],
     deck:[],
-    over:false,
-    status:"Yeni oyun"
+    bet:10,
+    over:true,
+    status:"Yeni el başlat"
   });
 }
 
@@ -146,44 +149,79 @@ function newGame(){
   suits.forEach(s=>vals.forEach(v=>deck.push({s,v})));
   deck.sort(()=>Math.random()-0.5);
 
-  ref.set({
-    turn:"efe",
-    deck,
-    dealer:[deck.pop(),deck.pop()],
-    p1:{name:"efe",hand:[deck.pop(),deck.pop()]},
-    p2:{name:"ayla",hand:[deck.pop(),deck.pop()]},
-    over:false,
-    status:"Sıra: efe"
+  ref.once("value",s=>{
+    const d=s.val();
+    if(d.p1.chips<10||d.p2.chips<10) return alert("Yetersiz çip");
+
+    d.p1.chips-=10;
+    d.p2.chips-=10;
+
+    d.turn="efe";
+    d.timer=15;
+    d.deck=deck;
+    d.dealer=[deck.pop(),deck.pop()];
+    d.p1.hand=[deck.pop(),deck.pop()];
+    d.p2.hand=[deck.pop(),deck.pop()];
+    d.over=false;
+    d.status="Sıra: efe";
+    ref.set(d);
+    startTimer();
   });
 }
 
 function hit(){
-  ref.once("value",s=>{
-    const d=s.val();
-    if(!d||d.turn!==me||d.over) return;
-    const p=me==="efe"?d.p1:d.p2;
-    p.hand.push(d.deck.pop());
-    if(score(p.hand)>21) d.turn=me==="efe"?"ayla":"dealer";
-    ref.set(d);
-    if(d.turn==="dealer") dealerPlay(d);
-  });
+  action("hit");
+}
+function stand(){
+  action("stand");
 }
 
-function stand(){
+function action(type){
   ref.once("value",s=>{
     const d=s.val();
-    if(!d||d.turn!==me) return;
-    d.turn=me==="efe"?"ayla":"dealer";
+    if(d.turn!==me||d.over) return;
+    const p=me==="efe"?d.p1:d.p2;
+    if(type==="hit") p.hand.push(d.deck.pop());
+    if(type==="stand"||score(p.hand)>21){
+      d.turn=me==="efe"?"ayla":"dealer";
+      d.timer=15;
+    }
     ref.set(d);
     if(d.turn==="dealer") dealerPlay(d);
+    else startTimer();
   });
 }
 
 function dealerPlay(d){
   while(score(d.dealer)<17) d.dealer.push(d.deck.pop());
   d.over=true;
+
+  const dScore=score(d.dealer);
+  ["p1","p2"].forEach(p=>{
+    const ps=score(d[p].hand);
+    if(ps<=21&&(dScore>21||ps>dScore)) d[p].chips+=20;
+    else if(ps===dScore) d[p].chips+=10;
+  });
+
   d.status="El bitti";
   ref.set(d);
+}
+
+function startTimer(){
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    ref.once("value",s=>{
+      const d=s.val();
+      if(d.over) return clearInterval(timerInt);
+      d.timer--;
+      if(d.timer<=0){
+        d.turn=d.turn==="efe"?"ayla":"dealer";
+        d.timer=15;
+        ref.set(d);
+        if(d.turn==="dealer") dealerPlay(d);
+      }else ref.set(d);
+    });
+  },1000);
 }
 
 function score(hand){
@@ -200,33 +238,36 @@ function score(hand){
 function render(d){
   if(!d) return;
 
-  p1Name.innerText=d.p1?.name||"efe";
-  p2Name.innerText=d.p2?.name||"ayla";
-  status.innerText=d.status||"";
+  status.innerText=d.status;
+  timer.innerText=d.timer;
 
-  draw(p1Cards,d.p1?.hand||[]);
-  draw(p2Cards,d.p2?.hand||[]);
-  draw(dealerCards,d.dealer||[],d.over);
+  p1Name.innerText=d.p1.name;
+  p2Name.innerText=d.p2.name;
+  p1Chips.innerText=d.p1.chips;
+  p2Chips.innerText=d.p2.chips;
 
-  p1Score.innerText=score(d.p1?.hand||[]);
-  p2Score.innerText=score(d.p2?.hand||[]);
-  dealerScore.innerText=d.over?score(d.dealer||[]):"?";
+  draw(p1Cards,d.p1.hand,me==="efe");
+  draw(p2Cards,d.p2.hand,me==="ayla");
+  draw(dealerCards,d.dealer,d.over);
+
+  p1Score.innerText=score(d.p1.hand);
+  p2Score.innerText=score(d.p2.hand);
+  dealerScore.innerText=d.over?score(d.dealer):"?";
 
   p1.classList.toggle("active",d.turn==="efe");
   p2.classList.toggle("active",d.turn==="ayla");
 }
 
-function draw(el,hand,show=true){
+function draw(el,hand,show){
   el.innerHTML="";
   hand.forEach((c,i)=>{
     const div=document.createElement("div");
     div.className="card "+("♥♦".includes(c.s)?"red":"");
-    if(!show&&i===1) div.style.background="#1a237e";
+    if(!show) div.style.background="#1a237e";
     else div.innerHTML=`${c.v}<div style="font-size:2rem">${c.s}</div>${c.v}`;
     el.appendChild(div);
   });
 }
 </script>
-
 </body>
 </html>
