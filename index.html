@@ -104,6 +104,7 @@ firebase.initializeApp({
 const db=firebase.database();
 
 let room="",me="",ref,timerInt;
+let lastHands="";
 
 const safe=n=>Number(n)||0;
 
@@ -209,37 +210,38 @@ function score(h){
 function render(d){
   if(!d) return;
 
-  // SADECE SAYI GÜNCELLE
-  status.innerText = d.status;
-  timer.innerText  = d.timer;
+  status.innerText=d.status;
+  timer.innerText=d.timer;
 
-  p1Name.innerText  = d.p1.name;
-  p2Name.innerText  = d.p2.name;
-  p1Chips.innerText = d.p1.chips;
-  p2Chips.innerText = d.p2.chips;
+  p1Name.innerText=d.p1.name;
+  p2Name.innerText=d.p2.name;
+  p1Chips.innerText=d.p1.chips;
+  p2Chips.innerText=d.p2.chips;
 
-  // 🔐 Kartlar değişti mi kontrol et
-  const handState = JSON.stringify({
-    p1:d.p1.hand,
-    p2:d.p2.hand,
-    dealer:d.dealer,
-    over:d.over
-  });
-
-  if(handState !== lastHands){
-    lastHands = handState;
-
+  const state=JSON.stringify({p1:d.p1.hand,p2:d.p2.hand,dealer:d.dealer,over:d.over});
+  if(state!==lastHands){
+    lastHands=state;
     draw(p1Cards,d.p1.hand,me==="efe");
     draw(p2Cards,d.p2.hand,me==="ayla");
     draw(dealerCards,d.dealer,d.over);
-
-    p1Score.innerText = score(d.p1.hand);
-    p2Score.innerText = score(d.p2.hand);
-    dealerScore.innerText = d.over ? score(d.dealer) : "?";
+    p1Score.innerText=score(d.p1.hand);
+    p2Score.innerText=score(d.p2.hand);
+    dealerScore.innerText=d.over?score(d.dealer):"?";
   }
 
   p1.classList.toggle("active",d.turn==="efe");
   p2.classList.toggle("active",d.turn==="ayla");
+}
+
+function draw(el,hand,show){
+  el.innerHTML="";
+  hand.forEach(c=>{
+    const div=document.createElement("div");
+    div.className="card "+("♥♦".includes(c.s)?"red":"");
+    if(!show) div.style.background="#1a237e";
+    else div.innerHTML=`${c.v}<div style="font-size:2rem">${c.s}</div>${c.v}`;
+    el.appendChild(div);
+  });
 }
 </script>
 </body>
